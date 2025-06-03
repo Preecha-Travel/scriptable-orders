@@ -225,3 +225,10 @@ function resolveFallbackHotel(lines, trip, usedLines) {
     }
   }
 }
+
+
+console.log("✅ Output JSON:");
+console.log(JSON.stringify(trips, null, 2));
+
+// 🔻 เพิ่มบรรทัดนี้ 🔻
+Script.setShortcutOutput(JSON.stringify(trips));
