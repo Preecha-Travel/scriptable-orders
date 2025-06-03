@@ -1,6 +1,23 @@
-let input = (args.plainTexts?.join("\n") || await Pasteboard.paste() || "").trim();
-if (!input) return Script.setShortcutOutput("❌ ไม่มีข้อมูลส่งเข้ามา");
-let lines = input.split("\n").map(l => l.trim()).filter(Boolean);
+module.exports = async function () {
+  try {
+    const input = await Pasteboard.paste();
+    if (!input) {
+      console.log("❌ ไม่มีข้อมูลในคลิปบอร์ด");
+      Script.setShortcutOutput("❌ ไม่พบข้อมูลในคลิปบอร์ด");
+      return;
+    }
+
+    console.log("📋 ข้อมูลจากคลิปบอร์ด:", input);
+
+    // 🔧 ใส่โค้ดประมวลผลของคุณที่นี่
+    const output = `✅ ดึงข้อความ ${input.length} ตัวอักษรสำเร็จ`;
+
+    Script.setShortcutOutput(output);
+  } catch (err) {
+    console.error("❌ ข้อผิดพลาด:", err);
+    Script.setShortcutOutput("❌ ERROR: " + err.message);
+  }
+};
 
 // ✅ 1. Extract Header (Order_ID, Name, WA)
 let orderID = "", name = "", wa = "", headerUsed = [];
