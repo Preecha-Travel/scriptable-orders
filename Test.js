@@ -1,11 +1,11 @@
-module.exports = async function () {
-  try {
-    const input = await Pasteboard.paste();
-    if (!input) {
-      console.log("❌ ไม่มีข้อมูลในคลิปบอร์ด");
-      Script.setShortcutOutput("❌ ไม่พบข้อมูลในคลิปบอร์ด");
-      return;
-    }
+(async function(console, Pasteboard, Script) {
+  const input = await Pasteboard.paste();
+  if (!input) {
+    console.log("❌ ไม่มีข้อมูลในคลิปบอร์ด");
+    Script.setShortcutOutput("❌ ไม่พบข้อมูลในคลิปบอร์ด");
+    return;
+  }
+
 
     console.log("📋 ข้อมูลจากคลิปบอร์ด:\n" + input);
 
@@ -217,10 +217,7 @@ module.exports = async function () {
       trips.push(trip);
     }
 
-    console.log("✅ Output JSON:\n" + JSON.stringify(trips, null, 2));
-    Script.setShortcutOutput(JSON.stringify(trips));
-  } catch (err) {
-    console.error("❌ ERROR:", err);
-    Script.setShortcutOutput("❌ ERROR: " + err.message);
-  }
-};
+  // 🔧 ใส่โค้ดวิเคราะห์ต่อได้เลย...
+  console.log("📋 ข้อมูลจากคลิปบอร์ด:", input);
+  Script.setShortcutOutput(`✅ รับข้อความ ${input.length} ตัวอักษร`);
+})(console, Pasteboard, Script);
