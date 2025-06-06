@@ -1,0 +1,225 @@
+import re
+import json
+
+def parse_raw_order(raw_text):
+    data = {
+        "Order_ID": "",
+        "Name": "",
+        "WA": "",
+        "Date": "",
+        "Route": "",
+        "normalizeRoute": "",
+        "Flight": "",
+        "flightAirport": "",
+        "Time_Start": "",
+        "Time_Arrival": "",
+        "People_Adult": 0,
+        "People_Kid": 0,
+        "People_Bag": "",
+        "car_sedan": 0,
+        "car_suv": 0,
+        "car_van": 0,
+        "car_vip_van": 0,
+        "car_h1": 0,
+        "car_alphard": 0,
+        "Car": "",
+        "Pickup_Hotel": "",
+        "Pickup_Map": "",
+        "Drop_Hotel": "",
+        "Drop_Map": "",
+        "Trip_type": "",
+        "Note": "",
+        "Extra": "",
+        "Raw_Block_Text": raw_text.strip()
+    }
+
+    def get_between(label, text):
+        match = re.search(fr"{label}\s*:\s*(.+)", text, re.IGNORECASE)
+        return match.group(1).strip() if match else ""
+
+    def normalize_route(route):
+        return re.sub(r"[^a-zA-Z0-9 ]", "", route).lower()
+
+    lines = raw_text.strip().splitlines()
+
+    for line in lines:
+        if "🗓" in line or "Date" in line:
+            data["Date"] = line.replace("🗓", "").strip()
+        elif "Flight" in line:
+            data["Flight"] = get_between("Flight", line)
+        elif "Time Arrival" in line:
+            data["Time_Arrival"] = get_between("Time Arrival", line)
+        elif "People" in line:
+            people_info = get_between("People", line)
+            adult_match = re.search(r"(\d+)", people_info)
+            data["People_Adult"] = int(adult_match.group(1)) if adult_match else 0
+        elif "Car" in line:
+            car = get_between("Car", line).lower()
+            data["Car"] = car.upper()
+            data["car_sedan"] = 1 if "sedan" in car else 0
+            data["car_suv"] = 1 if "suv" in car else 0
+            data["car_vip_van"] = 1 if "vip van" in car else 0
+            data["car_van"] = 1 if "van" in car and "vip" not in car else 0
+            data["car_h1"] = 1 if "h1" in car else 0
+            data["car_alphard"] = 1 if "alphard" in car else 0
+        elif "Drop" in line:
+            data["Drop_Hotel"] = get_between("Drop", line)
+        elif "Pick" in line:
+            data["Pickup_Hotel"] = get_between("Pick", line)
+        elif "https://" in line:
+            if not data["Drop_Map"]:
+                data["Drop_Map"] = line.strip()
+            elif not data["Pickup_Map"]:
+                data["Pickup_Map"] = line.strip()
+        elif "-" in line and "to" in line.lower():
+            data["Route"] = line.strip()
+
+    data["normalizeRoute"] = normalize_route(data["Route"])
+    
+    # Flight → airport
+    flight_prefix = data["Flight"].split("-")[0].upper()
+    if flight_prefix in ["QZ", "FD", "SL"]:
+        data["flightAirport"] = "DMK"
+    elif flight_prefix in ["TG", "GA", "SQ", "TR"]:
+        data["flightAirport"] = "BKK"
+    else:
+        data["flightAirport"] = ""
+
+    # ประเภท Trip (เดาง่าย)
+    if "airport" in data["normalizeRoute"]:
+        data["Trip_type"] = "Airport Transfer"
+    elif "-" in data["Route"]:
+        data["Trip_type"] = "Day Trip"
+    else:
+        data["Trip_type"] = ""
+
+    return data
+
+{
+  "Orders": {
+    "description": "โครงสร้างตารางข้อมูลคำสั่ง",
+    "fields": [
+      {
+        "name": "Route",
+        "type": "Text",
+        "example": "DMK to Bangkok",
+        "notes": "ชื่อเส้นทาง หรือระบุจุดเริ่ม-จบ"
+      },
+      {
+        "name": "Airport",
+        "type": "Code (3)",
+        "example": "DMK",
+        "notes": "รหัสสนามบิน"
+      },
+      {
+        "name": "Flight No.",
+        "type": "Text",
+        "example": "QZ252",
+        "notes": "ใช้ตรวจสอบรหัสกับ Dictionary"
+      },
+      {
+        "name": "Hotel Name",
+        "type": "Text",
+        "example": "Baiyoke Sky Hotel",
+        "notes": "ใช้เปรียบเทียบกับ Map Link"
+      },
+      {
+        "name": "Hotel Map Link",
+        "type": "URL",
+        "example": "https://maps.app.goo.gl/HkPUp1aFydNdiaPn8",
+        "notes": "ต้องเป็นลิงก์ Google Maps"
+      }
+    ],
+    "sample_data": [
+      {
+        "Route": "DMK to Bangkok",
+        "Airport": "DMK",
+        "Flight No.": "QZ252",
+        "Hotel Name": "Baiyoke Sky Hotel",
+        "Hotel Map Link": "https://maps.app.goo.gl/HkPUp1aFydNdiaPn8"
+      },
+      {
+        "Route": "BKK to Pattaya",
+        "Airport": "BKK",
+        "Flight No.": "TG403",
+        "Hotel Name": "Grande Centre Point Pattaya",
+        "Hotel Map Link": "https://maps.app.goo.gl/jwhNNSaT4UqCEUhZA"
+      },
+      {
+        "Route": "Hotel to Airport",
+        "Airport": "DMK",
+        "Flight No.": "",
+        "Hotel Name": "The Berkeley Hotel Pratunam",
+        "Hotel Map Link": "https://maps.app.goo.gl/RweAX746MgFsoz7w8"
+      }
+    ]
+  },
+  "Dictionary": {
+    "description": "คำศัพท์ที่ใช้สำหรับตรวจสอบและเติมข้อมูล",
+    "entries": [
+      {
+        "keyword": "QZ",
+        "type": "Flight Prefix",
+        "group": "Low-cost Airline",
+        "note": "ใช้คู่กับสนามบิน DMK เท่านั้น"
+      },
+      {
+        "keyword": "TG",
+        "type": "Flight Prefix",
+        "group": "Full-service",
+        "note": "ใช้คู่กับสนามบิน BKK เท่านั้น"
+      },
+      {
+        "keyword": "DMK",
+        "type": "Airport Code",
+        "group": "Don Mueang",
+        "note": "สนามบินดอนเมือง"
+      },
+      {
+        "keyword": "BKK",
+        "type": "Airport Code",
+        "group": "Suvarnabhumi",
+        "note": "สนามบินสุวรรณภูมิ"
+      },
+      {
+        "keyword": "Sedan",
+        "type": "Car Type",
+        "group": "Private",
+        "note": "รถเก๋ง"
+      },
+      {
+        "keyword": "maps.app.goo.gl",
+        "type": "Map Domain",
+        "group": "Google Maps",
+        "note": "ตรวจสอบว่าเป็นลิงก์จริงหรือไม่"
+      }
+    ]
+  },
+  "ValidationRules": {
+    "description": "กฎตรวจสอบข้อมูลอัตโนมัติ",
+    "rules": [
+      {
+        "id": 1,
+        "fields": "Flight No. + Airport",
+        "logic": "QZ* ต้องใช้คู่กับ DMK",
+        "message": "QZ ต้องใช้กับสนามบิน DMK เท่านั้น"
+      },
+      {
+        "id": 2,
+        "fields": "Hotel Name + Hotel Map Link",
+        "logic": "Hotel name ไม่พบใน map link",
+        "message": "ลิงก์แผนที่ไม่ตรงกับชื่อโรงแรม"
+      },
+      {
+        "id": 3,
+        "fields": "Flight No.",
+        "logic": "Empty value",
+        "message": "ต้องกรอกหมายเลขไฟล"
+      }
+    ]
+  }
+}
+
+
+result = parse_raw_order(raw_text)
+print(json.dumps(result, ensure_ascii=False, indent=2))
